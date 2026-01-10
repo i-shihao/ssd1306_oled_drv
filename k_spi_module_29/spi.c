@@ -28,6 +28,7 @@ int oled_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
 	struct spi_data *sd = NULL; 
+
 	sd = devm_kzalloc(dev, sizeof(*sd), GFP_KERNEL);
 	
 	if (!sd) {
@@ -38,6 +39,15 @@ int oled_probe(struct spi_device *spi)
 	sd->spi = spi;
 	sd->dev = spi->dev;
 	spi_set_drvdata(spi,sd);
+
+	/* Getting gpio descriptor */
+	sd->cs_gpiod = devm_gpiod_get(dev, "spi", GPIOD_OUT_LOW);
+	
+	if (IS_ERR(sd->cs_gpiod)) {
+			int err = PTR_ERR(sd->cs_gpiod);
+			dev_err(dev, "devm_gpiod_get() error\n");
+			return err;
+	}
 
 
 	return 1;
