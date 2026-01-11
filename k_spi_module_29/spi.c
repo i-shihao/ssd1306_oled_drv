@@ -40,6 +40,14 @@ int oled_probe(struct spi_device *spi)
 	sd->dev = spi->dev;
 	spi_set_drvdata(spi,sd);
 
+	ret = devm_spi_register_driver(dev, &oled_drv);
+
+	if (ret < 0) {
+		dev_err(dev, "spi_register_driver() errr\n"):
+		return -ENOMEM ;
+	}
+
+
 	/* Getting gpio descriptor */
 	sd->cs_gpiod = devm_gpiod_get(dev, "spi", GPIOD_OUT_LOW);
 	
