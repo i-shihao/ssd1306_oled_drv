@@ -7,12 +7,31 @@
 #include <linux/of_device.h>
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
+
 struct spi_data {
+	struct spi_transfer *st;
         struct spi_device *spi;	
 	struct device dev;
+	struct gpio_desc *dc;
+	struct gpio_desc *reset;
 	struct gpio_desc *cs_gpiod;
+	struct spi_controller  *ctrl;
 	int irq;
 };
+
+int  display_init( struct  spi_data *sd)
+{ 
+	if (!sd) 
+		return -ENODEV; 
+
+	/* Initialize the display set o to res */
+	gpiod_set_value(sd->reset, 1);
+
+	/* Set the dc value to value to low  initially */
+	gpiod_set_value(sd->dc, 0);
+
+	return 0;
+} 	
 
 void oled_shutdown(struct spi_device *spi)
 {
@@ -35,41 +54,54 @@ int oled_probe(struct spi_device *spi)
 		dev_info(dev, "kzalloc() error\n");
 		return  -ENOMEM;
 	}
-	/* Attaching private data to spi_device */
+
+	/* Set data to spi_device */
 	sd->spi = spi;
 	sd->dev = spi->dev;
+	sd->ctrl = spi->controller;
+
+
+	/* set slave device data */ 
+	spi->max_speed_hz = 400000;
+	spi->bits_per_word = 8;
+	spi->mode = 0; 
+
+
+	/* Get the gpios from device tree */
+	sd->dc = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
+	
+	if (!reset) {
+		dev_err(dev, "reset gpiod_get() error\n");
+		return -ENODEV;
+	}
+
+	sd->dc = devm_gpiod_get(dev, "dc", GPIOD_OUT_LOW);
+
+	if(!dc) {
+		dev_err(dev, " dc gpiod_get() error\n");
+		return -ENODEV;
+	}
+
 	spi_set_drvdata(spi,sd);
 
-	ret = devm_spi_register_driver(dev, &oled_drv);
+	ret = display_init(sd);
 
 	if (ret < 0) {
-		dev_err(dev, "spi_register_driver() errr\n"):
-		return -ENOMEM ;
+		 dev_err(dev, "display_init() error\n");
+		 return -ENODEV;
 	}
-
-
-	/* Getting gpio descriptor */
-	sd->cs_gpiod = devm_gpiod_get(dev, "spi", GPIOD_OUT_LOW);
-	
-	if (IS_ERR(sd->cs_gpiod)) {
-			int err = PTR_ERR(sd->cs_gpiod);
-			dev_err(dev, "devm_gpiod_get() error\n");
-			return err;
-	}
-
 
 	return 1;
 }
 
 static const struct of_device_id oled_match_table [] ={
 	{.compatible ="mycompany,spi-oled"},
-	{.compatible ="mycompany,spi-oled"},
 	{ }
 };
 
 MODULE_DEVICE_TABLE(of,oled_match_table);
 
-static const  struct  spi_driver oled_drv = { 
+static struct  spi_driver oled_drv = { 
 	.driver = {
 		.name = "spi_oled",
 		.of_match_table = oled_match_table,
@@ -83,11 +115,27 @@ static const  struct  spi_driver oled_drv = {
 
 static int __init spi_init(void)
 {
-	return 1 ;
+	int ret ;
+	
+	ret = spi_register_driver(&oled_drv);
+
+	if (ret < 0) {
+		pr_info("spi_register_driver() error\n");
+		goto r_spi;
+	}
+	pr_info("oled drv loaded\n");
+
+	return 0;
+r_spi:
+	spi_unregister_driver(&oled_drv);
+	return -1;
+
 } 
 
 static void __exit spi_exit(void)
 {
+	spi_unregister_driver(&oled_drv);
+
 	return ;
 }
 
