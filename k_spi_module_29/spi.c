@@ -1,4 +1,5 @@
 #include <linux/kernel.h>
+#include <linux/string.h>
 #include <linux/module.h>
 #include <linux/gpio/consumer.h>
 #include <linux/init.h>
@@ -8,8 +9,10 @@
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
 
+#define CMD 0
+#define DATA 1
+
 struct spi_data {
-	struct spi_transfer *st;
         struct spi_device *spi;	
 	struct device dev;
 	struct gpio_desc *dc;
@@ -19,17 +22,124 @@ struct spi_data {
 	int irq;
 };
 
+void toggel_dc( struct gpio_desc *dc)
+{
+	int value = gpiod_get_value(dc);
+	gpiod_set_value(dc, !value);
+}
+
+void set_dc(struct gpio_desc *dc , int value) 
+{
+	gpiod_set_value(dc, value);
+}
+
+
+void  init_check( struct gpio_desc *dc)
+{
+	uint8_t h_line[128] = {0};
+	uint8_t v_line[8] = {0};
+	
+	memset(v_line, 0XFF, sizeof(v_line));
+	memset(h_line , 0xFF, sizeof(h_line));
+	
+	set_dc(dc ,CMD);
+
+	/* vertical  display check */
+	send_command(0x21);
+	send_command(0x08);
+	send_command(0x08);
+
+	send_command(0x22);
+	send_command(0x00);
+	send_command(0x07);
+
+	toggel_dc(dc);
+
+	send_data(v_line);
+
+	/* Horizontal display check */
+	set_dc(dc, CMD);
+
+	send_command(0x21);
+	send_command(0x00);
+	send_command(0x7F);
+
+	send_command(0x22);
+	send_command(0x03);
+	send_command(0x03);
+
+	toggel_dc(dc);
+
+	send_data(h_line);
+
+	/* One pixel display check */
+	set_dc(dc, CMD);
+
+	send_command(0x21);
+	send_command(0x08);
+	send_command(0x08);
+
+	send_command(0x22);
+	send_command(0x03);
+	send_command(0x03);
+
+	toggel_dc(dc);
+
+	send_data(0x01);
+}
+
+void  clear_display(struct gpio_desc *dc)
+{
+	uint8_t total_size[1024] = {0};
+
+	set_dc(dc, CMD);
+
+	/* Set Horizontal addressing mode */
+	send_command(0x20);
+	send_command(0x00);
+
+	/* Set page and column addresses */
+	send_command(0x21);
+	send_command(0x00);
+	send_command(0x7F);
+
+	send_command(0x22);
+	send_command(0x00);
+	send_command(0x07);
+
+	toggel_dc(dc);
+
+	send_data(total_size);
+}
+
 int  display_init( struct  spi_data *sd)
 { 
-	if (!sd) 
-		return -ENODEV; 
+	/* Init protocol for SSD1360 */
+	int dcv = gpiod_get_value(sd->dc);
+	
+	if (dcv > 0 ) 
+		return EINVAL;
 
-	/* Initialize the display set o to res */
-	gpiod_set_value(sd->reset, 1);
-
-	/* Set the dc value to value to low  initially */
-	gpiod_set_value(sd->dc, 0);
-
+	send_command(0xAE);
+	send_command(0xA8);
+	send_command(0x3F); 
+	send_command(0xD3);
+	send_command(0x00);
+	send_command(0x40);
+	send_command(0xA0);
+	send_command(0xC0);
+	send_command(0xDA);
+	send_command(0x12);
+	send_command(0x80);
+	send_command(0x81);
+	send_command(0xA4);
+	send_command(0xA6);
+	send_command(0xD5);
+	send_command(0x80);
+	send_command(0x8D);
+	send_command(0x14);
+	send_command(0xAF);
+	
 	return 0;
 } 	
 
@@ -66,7 +176,7 @@ int oled_probe(struct spi_device *spi)
 	spi->max_speed_hz = 400000;
 	spi->bits_per_word = 8;
 	spi->mode = 0; 
-
+	spi_setup(spi);
 
 	/* Get the gpios from device tree */
 	sd->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
@@ -85,6 +195,15 @@ int oled_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi,sd);
 
+	/* Power on the display */
+	gpiod_set_value(sd->reset, 1);
+	
+	udelay(3);
+
+	gpiod_set_value(sd->reset, 0);
+
+	gpiod_set_value(sd->dc, 0);
+
 	ret = display_init(sd);
 
 	if (ret < 0) {
@@ -92,7 +211,13 @@ int oled_probe(struct spi_device *spi)
 		 return -ENODEV;
 	}
 
-	pr_info(" init complete\n");
+	dev_info(dev, "init complete\n");
+
+	clear_display(sd->dc);
+	dev_info(dev, "Display is ready\n");
+
+	init_check(sd->dc);
+	dev_info(dev, "Init check successful\n");
 
 	return 0;
 }
