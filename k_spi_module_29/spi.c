@@ -22,6 +22,36 @@ struct spi_data {
 	int irq;
 };
 
+int spi_transfer(struct spi_data *sd, const void *buff, ssize_t len)
+{
+	struct spi_transfer t = {};
+	struct spi_message m;
+	
+	t.tx_buf = buff;
+	t.len = len;
+
+	spi_message_init(&m);
+	spi_message_add_tail(&t, &m);
+
+	int ret = spi_sync(sd->spi, &m);
+
+	return ret;
+}
+
+int  send_data( struct spi_data *sd , uint8_t value)
+{
+	uint8_t cmd = value;
+	ssize_t len = sizeof(value);
+	int  ret = spi_transfer( sd, &cmd,len);
+	
+	if (ret < 0) {
+		pr_info("spi_tranfer() error\n");
+		return EINVAL;
+	}
+	return 0;
+}
+
+
 void toggel_dc( struct gpio_desc *dc)
 {
 	int value = gpiod_get_value(dc);
@@ -34,7 +64,7 @@ void set_dc(struct gpio_desc *dc , int value)
 }
 
 
-void  init_check( struct gpio_desc *dc)
+void  init_check( struct  spi_data * sd)
 {
 	uint8_t h_line[128] = {0};
 	uint8_t v_line[8] = {0};
@@ -42,74 +72,74 @@ void  init_check( struct gpio_desc *dc)
 	memset(v_line, 0XFF, sizeof(v_line));
 	memset(h_line , 0xFF, sizeof(h_line));
 	
-	set_dc(dc ,CMD);
+	set_dc(sd->dc ,CMD);
 
 	/* vertical  display check */
-	send_command(0x21);
-	send_command(0x08);
-	send_command(0x08);
+	send_data(sd, 0x21);
+	send_data(sd, 0x08);
+	send_data(sd, 0x08);
 
-	send_command(0x22);
-	send_command(0x00);
-	send_command(0x07);
+	send_data(sd, 0x22);
+	send_data(sd, 0x00);
+	send_data(sd, 0x07);
 
-	toggel_dc(dc);
+	toggel_dc(sd->dc);
 
-	send_data(v_line);
+	send_data(sd,*v_line);
 
 	/* Horizontal display check */
-	set_dc(dc, CMD);
+	set_dc(sd->dc, CMD);
 
-	send_command(0x21);
-	send_command(0x00);
-	send_command(0x7F);
+	send_data(sd,0x21);
+	send_data(sd, 0x00);
+	send_data(sd, 0x7F);
 
-	send_command(0x22);
-	send_command(0x03);
-	send_command(0x03);
+	send_data(sd, 0x22);
+	send_data(sd, 0x03);
+	send_data(sd, 0x03);
 
-	toggel_dc(dc);
+	toggel_dc(sd->dc);
 
-	send_data(h_line);
+	send_data(sd, *h_line);
 
 	/* One pixel display check */
-	set_dc(dc, CMD);
+	set_dc(sd->dc, CMD);
 
-	send_command(0x21);
-	send_command(0x08);
-	send_command(0x08);
+	send_data(sd, 0x21);
+	send_data(sd, 0x08);
+	send_data(sd, 0x08);
 
-	send_command(0x22);
-	send_command(0x03);
-	send_command(0x03);
+	send_data(sd, 0x22);
+	send_data(sd, 0x03);
+	send_data(sd, 0x03);
 
-	toggel_dc(dc);
+	toggel_dc(sd->dc);
 
-	send_data(0x01);
+	send_data(sd, 0x01);
 }
 
-void  clear_display(struct gpio_desc *dc)
+void  clear_display(struct spi_data *sd)
 {
 	uint8_t total_size[1024] = {0};
 
-	set_dc(dc, CMD);
+	set_dc(sd->dc, CMD);
 
 	/* Set Horizontal addressing mode */
-	send_command(0x20);
-	send_command(0x00);
+	send_data(sd, 0x20);
+	send_data(sd, 0x00);
 
 	/* Set page and column addresses */
-	send_command(0x21);
-	send_command(0x00);
-	send_command(0x7F);
+	send_data(sd, 0x21);
+	send_data(sd, 0x00);
+	send_data(sd, 0x7F);
 
-	send_command(0x22);
-	send_command(0x00);
-	send_command(0x07);
+	send_data(sd, 0x22);
+	send_data(sd, 0x00);
+	send_data(sd, 0x07);
 
-	toggel_dc(dc);
+	toggel_dc(sd->dc);
 
-	send_data(total_size);
+	send_data(sd ,*total_size);
 }
 
 int  display_init( struct  spi_data *sd)
@@ -120,25 +150,25 @@ int  display_init( struct  spi_data *sd)
 	if (dcv > 0 ) 
 		return EINVAL;
 
-	send_command(0xAE);
-	send_command(0xA8);
-	send_command(0x3F); 
-	send_command(0xD3);
-	send_command(0x00);
-	send_command(0x40);
-	send_command(0xA0);
-	send_command(0xC0);
-	send_command(0xDA);
-	send_command(0x12);
-	send_command(0x80);
-	send_command(0x81);
-	send_command(0xA4);
-	send_command(0xA6);
-	send_command(0xD5);
-	send_command(0x80);
-	send_command(0x8D);
-	send_command(0x14);
-	send_command(0xAF);
+	send_data(sd,  0xAE);
+	send_data(sd,  0xA8);
+	send_data(sd,  0x3F); 
+	send_data(sd,  0xD3);
+	send_data(sd,  0x00);
+	send_data(sd,  0x40);
+	send_data(sd,  0xA0);
+	send_data(sd,  0xC0);
+	send_data(sd,  0xDA);
+	send_data(sd,  0x12);
+	send_data(sd,  0x80);
+	send_data(sd,  0x81);
+	send_data(sd,  0xA4);
+	send_data(sd,  0xA6);
+	send_data(sd,  0xD5);
+	send_data(sd,  0x80);
+	send_data(sd,  0x8D);
+	send_data(sd,  0x14);
+	send_data(sd,  0xAF);
 	
 	return 0;
 } 	
@@ -213,10 +243,10 @@ int oled_probe(struct spi_device *spi)
 
 	dev_info(dev, "init complete\n");
 
-	clear_display(sd->dc);
+	clear_display(sd);
 	dev_info(dev, "Display is ready\n");
 
-	init_check(sd->dc);
+	init_check(sd);
 	dev_info(dev, "Init check successful\n");
 
 	return 0;
