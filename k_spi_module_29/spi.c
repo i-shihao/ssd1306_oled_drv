@@ -45,6 +45,7 @@ void oled_remove(struct spi_device *spi)
 
 int oled_probe(struct spi_device *spi)
 {
+	int ret;
 	struct device *dev = &spi->dev;
 	struct spi_data *sd = NULL; 
 
@@ -68,16 +69,16 @@ int oled_probe(struct spi_device *spi)
 
 
 	/* Get the gpios from device tree */
-	sd->dc = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
+	sd->reset = devm_gpiod_get(dev, "reset", GPIOD_OUT_LOW);
 	
-	if (!reset) {
+	if (!sd->reset) {
 		dev_err(dev, "reset gpiod_get() error\n");
 		return -ENODEV;
 	}
 
 	sd->dc = devm_gpiod_get(dev, "dc", GPIOD_OUT_LOW);
 
-	if(!dc) {
+	if(!sd->dc) {
 		dev_err(dev, " dc gpiod_get() error\n");
 		return -ENODEV;
 	}
@@ -91,11 +92,13 @@ int oled_probe(struct spi_device *spi)
 		 return -ENODEV;
 	}
 
-	return 1;
+	pr_info(" init complete\n");
+
+	return 0;
 }
 
 static const struct of_device_id oled_match_table [] ={
-	{.compatible ="mycompany,spi-oled"},
+	{.compatible ="mycompany,oled-1360"},
 	{ }
 };
 
