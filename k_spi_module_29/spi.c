@@ -22,7 +22,7 @@ struct spi_data {
 	int irq;
 };
 
-int spi_transfer(struct spi_data *sd, const void *buff, ssize_t len)
+int oled_spi_write(struct spi_data *sd, const void *buff, ssize_t len)
 {
 	struct spi_transfer t = {};
 	struct spi_message m;
@@ -41,14 +41,10 @@ int spi_transfer(struct spi_data *sd, const void *buff, ssize_t len)
 int  send_data( struct spi_data *sd , uint8_t value)
 {
 	uint8_t cmd = value;
-	ssize_t len = sizeof(value);
-	int  ret = spi_transfer( sd, &cmd,len);
-	
-	if (ret < 0) {
-		pr_info("spi_tranfer() error\n");
-		return EINVAL;
-	}
-	return 0;
+	ssize_t len = sizeof(cmd);
+	int  ret = oled_spi_write( sd, &cmd,len);
+
+	return ret;
 }
 
 
@@ -85,7 +81,7 @@ void  init_check( struct  spi_data * sd)
 
 	toggel_dc(sd->dc);
 
-	send_data(sd,*v_line);
+	oled_spi_write(sd, v_line, sizeof(v_line));
 
 	/* Horizontal display check */
 	set_dc(sd->dc, CMD);
@@ -100,7 +96,7 @@ void  init_check( struct  spi_data * sd)
 
 	toggel_dc(sd->dc);
 
-	send_data(sd, *h_line);
+	oled_spi_write(sd, h_line, sizeof(h_line));
 
 	/* One pixel display check */
 	set_dc(sd->dc, CMD);
@@ -139,7 +135,7 @@ void  clear_display(struct spi_data *sd)
 
 	toggel_dc(sd->dc);
 
-	send_data(sd ,*total_size);
+	oled_spi_write(sd ,total_size, sizeof(total_size));
 }
 
 int  display_init( struct  spi_data *sd)
