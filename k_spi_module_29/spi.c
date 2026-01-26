@@ -22,7 +22,18 @@ struct spi_data {
 	int irq;
 };
 
-int oled_spi_write(struct spi_data *sd, const void *buff, ssize_t len)
+void toggel_dc( struct gpio_desc *dc)
+{
+	int value = gpiod_get_value(dc);
+	gpiod_set_value(dc, !value);
+}
+
+void set_dc(struct gpio_desc *dc , int value) 
+{
+	gpiod_set_value(dc, value);
+}
+
+int spi_oled_write(struct spi_data *sd, const void *buff, size_t len)
 {
 	struct spi_transfer t = {};
 	struct spi_message m;
@@ -38,27 +49,52 @@ int oled_spi_write(struct spi_data *sd, const void *buff, ssize_t len)
 	return ret;
 }
 
-int  send_data( struct spi_data *sd , uint8_t value)
+void  send_data( struct spi_data *sd , uint8_t data)
 {
-	uint8_t cmd = value;
-	ssize_t len = sizeof(cmd);
-	int  ret = oled_spi_write( sd, &cmd,len);
+	set_dc(sd->dc, DATA);
 
-	return ret;
+	uint8_t cmd = data;
+	size_t len = sizeof(cmd);
+
+	int  ret = spi_oled_write( sd, &cmd,len);
+	
+	if (ret < 0) {
+		dev_err(&sd->dev, "spi_oled_write() error\n");
+		return ;
+	}
+
+	return;
 }
 
-
-void toggel_dc( struct gpio_desc *dc)
+void send_command( struct spi_data *sd, uint8_t cmd)
 {
-	int value = gpiod_get_value(dc);
-	gpiod_set_value(dc, !value);
+	set_dc(sd->dc, CMD);
+
+	uint8_t command =  cmd;
+	size_t len = sizeof(command);
+
+	int ret = spi_oled_write(sd, &command, len);
+	
+	if (ret < 0) {
+		dev_err(&sd->dev, "spi_oled_write() error\n");
+		return ;
+	}
+	return;
 }
 
-void set_dc(struct gpio_desc *dc , int value) 
+void send_buff(struct spi_data *sd, const void *buf, size_t len)
 {
-	gpiod_set_value(dc, value);
-}
+	set_dc(sd->dc, DATA);
 
+	int ret = spi_oled_write(sd, buf, len);
+
+	if (ret < 0) {
+		dev_err(&sd->dev, "spi_oled_write() error\n");
+		return;
+	}
+
+	return;
+}
 
 void  init_check( struct  spi_data * sd)
 {
@@ -68,48 +104,38 @@ void  init_check( struct  spi_data * sd)
 	memset(v_line, 0XFF, sizeof(v_line));
 	memset(h_line , 0xFF, sizeof(h_line));
 	
-	set_dc(sd->dc ,CMD);
 
 	/* vertical  display check */
-	send_data(sd, 0x21);
-	send_data(sd, 0x08);
-	send_data(sd, 0x08);
+	send_command(sd, 0x21);
+	send_command(sd, 0x08);
+	send_command(sd, 0x08);
 
-	send_data(sd, 0x22);
-	send_data(sd, 0x00);
-	send_data(sd, 0x07);
+	send_command(sd, 0x22);
+	send_command(sd, 0x00);
+	send_command(sd, 0x07);
 
-	toggel_dc(sd->dc);
-
-	oled_spi_write(sd, v_line, sizeof(v_line));
+	send_buff(sd, v_line, 8);
 
 	/* Horizontal display check */
-	set_dc(sd->dc, CMD);
+	send_command(sd, 0x21);
+	send_command(sd, 0x00);
+	send_command(sd, 0x7F);
 
-	send_data(sd,0x21);
-	send_data(sd, 0x00);
-	send_data(sd, 0x7F);
-
-	send_data(sd, 0x22);
-	send_data(sd, 0x03);
-	send_data(sd, 0x03);
-
-	toggel_dc(sd->dc);
-
-	oled_spi_write(sd, h_line, sizeof(h_line));
+	send_command(sd, 0x22);
+	send_command(sd, 0x03);
+	send_command(sd, 0x03);
+	
+	send_buff(sd, h_line, 128);
 
 	/* One pixel display check */
-	set_dc(sd->dc, CMD);
+	
+	send_command(sd, 0x21);
+	send_command(sd, 0x08);
+	send_command(sd, 0x08);
 
-	send_data(sd, 0x21);
-	send_data(sd, 0x08);
-	send_data(sd, 0x08);
-
-	send_data(sd, 0x22);
-	send_data(sd, 0x03);
-	send_data(sd, 0x03);
-
-	toggel_dc(sd->dc);
+	send_command(sd, 0x22);
+	send_command(sd, 0x03);
+	send_command(sd, 0x03);
 
 	send_data(sd, 0x01);
 }
@@ -118,24 +144,20 @@ void  clear_display(struct spi_data *sd)
 {
 	uint8_t total_size[1024] = {0};
 
-	set_dc(sd->dc, CMD);
-
 	/* Set Horizontal addressing mode */
-	send_data(sd, 0x20);
-	send_data(sd, 0x00);
+	send_command(sd, 0x20);
+	send_command(sd, 0x00);
 
 	/* Set page and column addresses */
-	send_data(sd, 0x21);
-	send_data(sd, 0x00);
-	send_data(sd, 0x7F);
+	send_command(sd, 0x21);
+	send_command(sd, 0x00);
+	send_command(sd, 0x7F);
 
-	send_data(sd, 0x22);
-	send_data(sd, 0x00);
-	send_data(sd, 0x07);
+	send_command(sd, 0x22);
+	send_command(sd, 0x00);
+	send_command(sd, 0x07);
 
-	toggel_dc(sd->dc);
-
-	oled_spi_write(sd ,total_size, sizeof(total_size));
+	send_buff(sd, total_size, 1024);
 }
 
 int  display_init( struct  spi_data *sd)
@@ -146,36 +168,50 @@ int  display_init( struct  spi_data *sd)
 	if (dcv > 0 ) 
 		return EINVAL;
 
-	send_data(sd,  0xAE);
-	send_data(sd,  0xA8);
-	send_data(sd,  0x3F); 
-	send_data(sd,  0xD3);
-	send_data(sd,  0x00);
-	send_data(sd,  0x40);
-	send_data(sd,  0xA0);
-	send_data(sd,  0xC0);
-	send_data(sd,  0xDA);
-	send_data(sd,  0x12);
-	send_data(sd,  0x80);
-	send_data(sd,  0x81);
-	send_data(sd,  0xA4);
-	send_data(sd,  0xA6);
-	send_data(sd,  0xD5);
-	send_data(sd,  0x80);
-	send_data(sd,  0x8D);
-	send_data(sd,  0x14);
-	send_data(sd,  0xAF);
+	send_command(sd,  0xAE);
+	send_command(sd,  0xA8);
+	send_command(sd,  0x3F); 
+	send_command(sd,  0xD3);
+	send_command(sd,  0x00);
+	send_command(sd,  0x40);
+	send_command(sd,  0xA0);
+	send_command(sd,  0xC0);
+	send_command(sd,  0xDA);
+	send_command(sd,  0x12);
+	send_command(sd,  0x80);
+	send_command(sd,  0x81);
+	send_command(sd,  0xA4);
+	send_command(sd,  0xA6);
+	send_command(sd,  0xD5);
+	send_command(sd,  0x80);
+	send_command(sd,  0x8D);
+	send_command(sd,  0x14);
+	send_command(sd,  0xAF);
 	
 	return 0;
 } 	
 
 void oled_shutdown(struct spi_device *spi)
 {
+	struct spi_data *sd = spi_get_drvdata(spi);
+	
+	/* send comman to power off display */
+	send_command(sd, 0xAE);
+
+	msleep(50);
+	dev_info(&sd->dev, "oled display powered off\n");
+
 	return;
 }
 
 void oled_remove(struct spi_device *spi)
 {
+	struct spi_data *sd = spi_get_drvdata(spi);
+
+	if (!sd) 
+		return;
+	dev_info(&sd->dev, "oled driver removed \n");
+
 	return ;
 }
 
@@ -224,9 +260,11 @@ int oled_probe(struct spi_device *spi)
 	/* Power on the display */
 	gpiod_set_value(sd->reset, 1);
 	
-	udelay(3);
+	msleep(100);
 
 	gpiod_set_value(sd->reset, 0);
+
+	msleep(100);
 
 	gpiod_set_value(sd->dc, 0);
 
