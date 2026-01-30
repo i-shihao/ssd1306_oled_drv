@@ -8,6 +8,7 @@
 #include <linux/of_device.h>
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
+#include "spi.h" 
 
 #define CMD 0
 #define DATA 1
@@ -21,6 +22,14 @@ struct spi_data {
 	struct spi_controller  *ctrl;
 	int irq;
 };
+
+int find_char(char * c )
+{
+	char aplhabet = *c;
+	int index = *c - 32;
+
+	return 0;
+}
 
 void toggel_dc( struct gpio_desc *dc)
 {
@@ -96,6 +105,137 @@ void send_buff(struct spi_data *sd, const void *buf, size_t len)
 	return;
 }
 
+
+void set_address_mode(struct spi_data *sd,int mode)
+{
+	send_command(sd, 0x20);
+	send_command(sd,mode);
+	return ;
+}
+
+void set_col_page(struct spi_data *sd, int start_col, int end_col, int start_page, int end_page)
+{
+	set_address_mode(sd, DEF_ADDR_MODE);
+	send_command(sd, 0x21);
+	send_command(sd, start_col);
+	send_command(sd, end_col);
+
+	send_command(sd, 0x22);
+	send_command(sd, start_page);
+	send_command(sd, end_page);
+
+	return;
+}
+
+static void  draw_glyph(struct spi_data *sd, char *string)
+{
+
+	int total_page = 8;
+	int total_col = 127;
+
+	int start_col = 0;
+	static 	int current_col = 0;
+	static int end_col ;
+
+	int start_page = 0;
+	static int end_page = 0;
+	static int current_page = 0;
+	
+	while(*string) {
+
+		if (end_col  > total_col) {
+			current_col = 0;
+			current_page++;
+			end_page = current_page;
+		}
+		if ((end_col > total_col) && (end_page > total_page)) {
+			current_col = 0;
+			current_page = 0;
+			end_col = 0;
+			end_page = 0;
+		}
+		char c = *string;
+		int index = *string - 32;
+
+		/* set len based on SDD1306 font */
+		int len = sizeof(SSD1306_font[index]);
+		end_col = current_col +len -1;
+
+		/* send font to display */
+		send_command(sd, 0x21);
+		send_command(sd, current_col);
+		send_command(sd, end_col);
+
+		send_command(sd, 0x22);
+		send_command(sd, current_page);
+		send_command(sd, end_page);
+		send_buff(sd, SSD1306_font[index], 5);
+
+		current_col = end_col + 1;
+		string++;
+	}
+	
+	return;
+}
+
+void animate( struct spi_data *sd)
+{
+
+	uint8_t  v_line[8] = {0};
+	uint8_t v_off[8] = {0};
+	memset(v_line, 0XFF, sizeof(v_line));
+	memset(v_off, 0x00, sizeof(v_off)); 
+
+	uint8_t one_c [] = { 0x7C, 0x12, 0x11, 0x12, 0x7C, 0x00 };
+	
+	uint8_t pami[] = {
+                0x7F, 0x09, 0x09, 0x09, 0x06, 0x00, //P
+                0x7C, 0x12, 0x11, 0x12, 0x7C, 0x00, //A
+                0x7F, 0x02, 0x0C, 0x02, 0x7F, 0x00, //M
+                0x00, 0x41, 0x7F, 0x41, 0x00, 0x00, //I
+
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // space 
+
+                0x7F, 0x40, 0x40, 0x40, 0x40, 0x00, //L
+                0x3E, 0x41, 0x41, 0x41, 0x3E, 0x00, //O
+                0x1F, 0x20, 0x40, 0x20, 0x1F, 0x00, //V
+                0x7F, 0x49, 0x49, 0x49, 0x41, 0x00, //E
+
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // space
+
+                0x07, 0x08, 0x70, 0x08, 0x07, 0x00, //Y
+                0x3E, 0x41, 0x41, 0x41, 0x3E, 0x00, //O
+                0x3F, 0x40, 0x40, 0x40, 0x3F, 0x00, //U
+        };
+
+	uint8_t start = 0;
+	uint8_t end = start + sizeof(pami) - 1; 
+
+	/* set column and page address */
+	for (int i = 0; i < 127; i++) {
+		if (i > 0) {
+		       	send_command(sd, 0x21);
+       			send_command(sd, i-1);  // Clear the previous column
+		        send_command(sd, end);
+		       	send_command(sd, 0x22);
+		        send_command(sd, 0x00);
+		       	send_command(sd, 0x07);
+       			send_buff(sd, v_off, 8);
+		}	
+		
+		send_command(sd, 0x21);
+	   	send_command(sd, i);
+	 	send_command(sd, end++);
+		send_command(sd, 0x22);
+		send_command(sd, 0x00);
+		send_command(sd, 0x07);
+		send_buff(sd, pami, sizeof(pami)); 
+		msleep(100);
+	}
+	pr_info(" animation complete\n");
+	return ;
+}
+
 void  init_check( struct  spi_data * sd)
 {
 	uint8_t h_line[128] = {0};
@@ -107,8 +247,8 @@ void  init_check( struct  spi_data * sd)
 
 	/* vertical  display check */
 	send_command(sd, 0x21);
-	send_command(sd, 0x08);
-	send_command(sd, 0x08);
+	send_command(sd, 0x00);
+	send_command(sd, 0x00);
 
 	send_command(sd, 0x22);
 	send_command(sd, 0x00);
@@ -122,8 +262,8 @@ void  init_check( struct  spi_data * sd)
 	send_command(sd, 0x7F);
 
 	send_command(sd, 0x22);
-	send_command(sd, 0x03);
-	send_command(sd, 0x03);
+	send_command(sd, 0x06);
+	send_command(sd, 0x06);
 	
 	send_buff(sd, h_line, 128);
 
@@ -282,6 +422,11 @@ int oled_probe(struct spi_device *spi)
 
 	init_check(sd);
 	dev_info(dev, "Init check successful\n");
+	
+	mdelay(100);
+	clear_display(sd);
+
+	dev_info(dev, "Draw_glyph()  \n");
 
 	return 0;
 }
