@@ -1,4 +1,8 @@
 #include <linux/kernel.h>
+#include <linux/fb.h>
+#include <linux/vmalloc.h>
+#include <linux/uaccess.h>
+#include <linux/string.h>
 #include <linux/string.h>
 #include <linux/module.h>
 #include <linux/gpio/consumer.h>
@@ -14,21 +18,46 @@
 #define DATA 1
 
 struct spi_data {
+	struct fb_info *info;
         struct spi_device *spi;	
 	struct device dev;
 	struct gpio_desc *dc;
 	struct gpio_desc *reset;
 	struct gpio_desc *cs_gpiod;
 	struct spi_controller  *ctrl;
+	u8 *framebuffer;
 	int irq;
 };
 
-int find_char(char * c )
-{
-	char aplhabet = *c;
-	int index = *c - 32;
+struct display_offset { 
+	int d_page ;
+	int d_col ;
+	int d_byte;
+};
 
-	return 0;
+static struct fb_ops ssd1306_fbops = {
+	.owner = THIS_MODULE,
+	.fb_write = NULL,
+};
+
+
+static int  colpage_to_byte(struct spi_data *sd, int col, int page)
+{
+	struct display_offset d_info;
+	d_info.d_col = col;
+	d_info.d_page = page;
+	d_info.d_byte = (page * 128) + col;
+	
+	return d_info.d_byte;
+}
+
+static struct display_offset* byte_to_colpage(struct spi_data *sd, int byte)
+{
+	struct display_offset d_info;
+	d_info.d_page = byte / 128;
+	d_info.d_col = byte % 128;
+	
+	return &d_info;	
 }
 
 void toggel_dc( struct gpio_desc *dc)
@@ -127,9 +156,31 @@ void set_col_page(struct spi_data *sd, int start_col, int end_col, int start_pag
 	return;
 }
 
-static void  draw_glyph(struct spi_data *sd, char *string)
+static ssize_t oled_fb_write(struct fb_info *info, const char __user *buf, size_t count, loff_t *ppos)
 {
+	return 0;
+}
 
+static void display_framebuffer(struct spi_data *sd, int col, int page, char *string, size_t len)
+{
+	int start_byte = colpage_to_byte(sd, col, page);
+	int end_byte = start_byte + len - 1;
+
+	while(*string) {
+
+		char c = *string;
+		int index = c - 32;
+		
+		for (int i=0;i<5;i++) 
+			sd->framebuffer[start_byte++] = SSD1306_font[index][i];
+	
+		string++;
+	}
+
+}
+
+static void  draw_glyph(struct spi_data *sd, char *string)
+{	
 	int total_page = 8;
 	int total_col = 127;
 
@@ -161,14 +212,8 @@ static void  draw_glyph(struct spi_data *sd, char *string)
 		int len = sizeof(SSD1306_font[index]);
 		end_col = current_col +len -1;
 
-		/* send font to display */
-		send_command(sd, 0x21);
-		send_command(sd, current_col);
-		send_command(sd, end_col);
-
-		send_command(sd, 0x22);
-		send_command(sd, current_page);
-		send_command(sd, end_page);
+		/* send font to display */	
+		set_col_page(sd, current_col, end_col, current_page, end_page);
 		send_buff(sd, SSD1306_font[index], 5);
 
 		current_col = end_col + 1;
@@ -180,59 +225,12 @@ static void  draw_glyph(struct spi_data *sd, char *string)
 
 void animate( struct spi_data *sd)
 {
-
-	uint8_t  v_line[8] = {0};
-	uint8_t v_off[8] = {0};
-	memset(v_line, 0XFF, sizeof(v_line));
-	memset(v_off, 0x00, sizeof(v_off)); 
-
-	uint8_t one_c [] = { 0x7C, 0x12, 0x11, 0x12, 0x7C, 0x00 };
-	
-	uint8_t pami[] = {
-                0x7F, 0x09, 0x09, 0x09, 0x06, 0x00, //P
-                0x7C, 0x12, 0x11, 0x12, 0x7C, 0x00, //A
-                0x7F, 0x02, 0x0C, 0x02, 0x7F, 0x00, //M
-                0x00, 0x41, 0x7F, 0x41, 0x00, 0x00, //I
-
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // space 
-
-                0x7F, 0x40, 0x40, 0x40, 0x40, 0x00, //L
-                0x3E, 0x41, 0x41, 0x41, 0x3E, 0x00, //O
-                0x1F, 0x20, 0x40, 0x20, 0x1F, 0x00, //V
-                0x7F, 0x49, 0x49, 0x49, 0x41, 0x00, //E
-
-                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // space
-
-                0x07, 0x08, 0x70, 0x08, 0x07, 0x00, //Y
-                0x3E, 0x41, 0x41, 0x41, 0x3E, 0x00, //O
-                0x3F, 0x40, 0x40, 0x40, 0x3F, 0x00, //U
-        };
-
-	uint8_t start = 0;
-	uint8_t end = start + sizeof(pami) - 1; 
-
-	/* set column and page address */
-	for (int i = 0; i < 127; i++) {
-		if (i > 0) {
-		       	send_command(sd, 0x21);
-       			send_command(sd, i-1);  // Clear the previous column
-		        send_command(sd, end);
-		       	send_command(sd, 0x22);
-		        send_command(sd, 0x00);
-		       	send_command(sd, 0x07);
-       			send_buff(sd, v_off, 8);
-		}	
-		
-		send_command(sd, 0x21);
-	   	send_command(sd, i);
-	 	send_command(sd, end++);
-		send_command(sd, 0x22);
-		send_command(sd, 0x00);
-		send_command(sd, 0x07);
-		send_buff(sd, pami, sizeof(pami)); 
-		msleep(100);
+	for (int i = 0;i < 127;i++) {
+		set_col_page(sd, i,127 ,0,7);
+		send_buff(sd, sd->framebuffer, 1024);
+		msleep(200);
 	}
-	pr_info(" animation complete\n");
+
 	return ;
 }
 
@@ -347,6 +345,13 @@ void oled_shutdown(struct spi_device *spi)
 void oled_remove(struct spi_device *spi)
 {
 	struct spi_data *sd = spi_get_drvdata(spi);
+	
+	if (!sd)
+		return;
+
+	unregister_framebuffer(sd->info);
+	vfree(sd->info->screen_base);
+	framebuffer_release(sd->info);
 
 	if (!sd) 
 		return;
@@ -360,6 +365,7 @@ int oled_probe(struct spi_device *spi)
 	int ret;
 	struct device *dev = &spi->dev;
 	struct spi_data *sd = NULL; 
+	struct fb_info *info ;
 
 	sd = devm_kzalloc(dev, sizeof(*sd), GFP_KERNEL);
 	
@@ -372,6 +378,36 @@ int oled_probe(struct spi_device *spi)
 	sd->spi = spi;
 	sd->dev = spi->dev;
 	sd->ctrl = spi->controller;
+
+	/* initialize framebuffer to zero */
+	info = framebuffer_alloc(0, &spi->dev);
+	
+	if (!info) 
+		return -ENOMEM;
+
+	info->screen_base = vzalloc(1024);
+
+	if (!info->screen_base)
+	    return -ENOMEM;
+
+	info->fix.smem_len = 1024;
+	info->var.xres = 128;
+	info->var.yres = 64;
+	info->var.xres_virtual = 128;
+	info->var.yres_virtual = 64;
+	info->var.bits_per_pixel = 1;
+
+	strcpy(info->fix.id, "SSD1306");
+	info->fix.type = FB_TYPE_PACKED_PIXELS;
+	info->fix.visual = FB_VISUAL_MONO01;
+	info->fix.line_length = 128 / 8;
+	info->fbops = &ssd1306_fbops;
+	info->par = sd;
+	
+	register_framebuffer(info);
+
+	sd->info = info;
+	sd->framebuffer = info->screen_base;
 
 
 	/* set slave device data */ 
@@ -426,7 +462,9 @@ int oled_probe(struct spi_device *spi)
 	mdelay(100);
 	clear_display(sd);
 
-	dev_info(dev, "Draw_glyph()  \n");
+	char *string = "A";
+	display_framebuffer(sd, 0, 3, string, strlen(string));
+	animate(sd);
 
 	return 0;
 }
