@@ -18,14 +18,13 @@
 #define DATA 1
 
 struct spi_data {
-	struct fb_info *info;
         struct spi_device *spi;	
 	struct device dev;
 	struct gpio_desc *dc;
 	struct gpio_desc *reset;
 	struct gpio_desc *cs_gpiod;
 	struct spi_controller  *ctrl;
-	u8 *framebuffer;
+	uint8_t framebuffer[1024];
 	int irq;
 };
 
@@ -34,12 +33,6 @@ struct display_offset {
 	int d_col ;
 	int d_byte;
 };
-
-static struct fb_ops ssd1306_fbops = {
-	.owner = THIS_MODULE,
-	.fb_write = NULL,
-};
-
 
 static int  colpage_to_byte(struct spi_data *sd, int col, int page)
 {
@@ -156,15 +149,15 @@ void set_col_page(struct spi_data *sd, int start_col, int end_col, int start_pag
 	return;
 }
 
-static ssize_t oled_fb_write(struct fb_info *info, const char __user *buf, size_t count, loff_t *ppos)
+static  void oled_flush(struct spi_data *sd, const void *string , size_t len)
 {
-	return 0;
+	send_buff(sd, string, len);
+	return;
 }
 
 static void display_framebuffer(struct spi_data *sd, int col, int page, char *string, size_t len)
 {
 	int start_byte = colpage_to_byte(sd, col, page);
-	int end_byte = start_byte + len - 1;
 
 	while(*string) {
 
@@ -177,6 +170,8 @@ static void display_framebuffer(struct spi_data *sd, int col, int page, char *st
 		string++;
 	}
 
+	oled_flush(sd, sd->framebuffer, 1024);
+
 }
 
 static void  draw_glyph(struct spi_data *sd, char *string)
@@ -185,13 +180,12 @@ static void  draw_glyph(struct spi_data *sd, char *string)
 	int total_col = 127;
 
 	int start_col = 0;
-	static 	int current_col = 0;
+	static int current_col = 0;
 	static int end_col ;
 
 	int start_page = 0;
-	static int end_page = 0;
 	static int current_page = 0;
-	
+	int end_page = 0;	
 	while(*string) {
 
 		if (end_col  > total_col) {
@@ -205,7 +199,7 @@ static void  draw_glyph(struct spi_data *sd, char *string)
 			end_col = 0;
 			end_page = 0;
 		}
-		char c = *string;
+		
 		int index = *string - 32;
 
 		/* set len based on SDD1306 font */
@@ -221,17 +215,6 @@ static void  draw_glyph(struct spi_data *sd, char *string)
 	}
 	
 	return;
-}
-
-void animate( struct spi_data *sd)
-{
-	for (int i = 0;i < 127;i++) {
-		set_col_page(sd, i,127 ,0,7);
-		send_buff(sd, sd->framebuffer, 1024);
-		msleep(200);
-	}
-
-	return ;
 }
 
 void  init_check( struct  spi_data * sd)
@@ -349,10 +332,6 @@ void oled_remove(struct spi_device *spi)
 	if (!sd)
 		return;
 
-	unregister_framebuffer(sd->info);
-	vfree(sd->info->screen_base);
-	framebuffer_release(sd->info);
-
 	if (!sd) 
 		return;
 	dev_info(&sd->dev, "oled driver removed \n");
@@ -365,7 +344,6 @@ int oled_probe(struct spi_device *spi)
 	int ret;
 	struct device *dev = &spi->dev;
 	struct spi_data *sd = NULL; 
-	struct fb_info *info ;
 
 	sd = devm_kzalloc(dev, sizeof(*sd), GFP_KERNEL);
 	
@@ -380,35 +358,7 @@ int oled_probe(struct spi_device *spi)
 	sd->ctrl = spi->controller;
 
 	/* initialize framebuffer to zero */
-	info = framebuffer_alloc(0, &spi->dev);
-	
-	if (!info) 
-		return -ENOMEM;
-
-	info->screen_base = vzalloc(1024);
-
-	if (!info->screen_base)
-	    return -ENOMEM;
-
-	info->fix.smem_len = 1024;
-	info->var.xres = 128;
-	info->var.yres = 64;
-	info->var.xres_virtual = 128;
-	info->var.yres_virtual = 64;
-	info->var.bits_per_pixel = 1;
-
-	strcpy(info->fix.id, "SSD1306");
-	info->fix.type = FB_TYPE_PACKED_PIXELS;
-	info->fix.visual = FB_VISUAL_MONO01;
-	info->fix.line_length = 128 / 8;
-	info->fbops = &ssd1306_fbops;
-	info->par = sd;
-	
-	register_framebuffer(info);
-
-	sd->info = info;
-	sd->framebuffer = info->screen_base;
-
+	memset(sd->framebuffer,0, 1024);
 
 	/* set slave device data */ 
 	spi->max_speed_hz = 400000;
@@ -461,10 +411,6 @@ int oled_probe(struct spi_device *spi)
 	
 	mdelay(100);
 	clear_display(sd);
-
-	char *string = "A";
-	display_framebuffer(sd, 0, 3, string, strlen(string));
-	animate(sd);
 
 	return 0;
 }
