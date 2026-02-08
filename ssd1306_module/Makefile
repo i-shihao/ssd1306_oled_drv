@@ -1,4 +1,4 @@
-obj-m +=spi.o
+obj-m +=ssd1306.o
 
 KDIR := /lib/modules/$(shell uname -r)/build
 PWD  := $(shell pwd) 

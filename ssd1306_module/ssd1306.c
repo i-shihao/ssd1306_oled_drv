@@ -12,7 +12,7 @@
 #include <linux/of_device.h>
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
-#include "spi.h" 
+#include "ssd1306.h" 
 
 #define CMD 0
 #define DATA 1
@@ -415,17 +415,17 @@ int oled_probe(struct spi_device *spi)
 	return 0;
 }
 
-static const struct of_device_id oled_match_table [] ={
+static const struct of_device_id ssd1306_match_table [] ={
 	{.compatible ="mycompany,oled-1360"},
 	{ }
 };
 
-MODULE_DEVICE_TABLE(of,oled_match_table);
+MODULE_DEVICE_TABLE(of,ssd1306_match_table);
 
-static struct  spi_driver oled_drv = { 
+static struct  spi_driver ssd1306_drv = { 
 	.driver = {
 		.name = "spi_oled",
-		.of_match_table = oled_match_table,
+		.of_match_table = ssd1306_match_table,
 	},
 	.probe = oled_probe,
 	.remove= oled_remove,
@@ -434,11 +434,11 @@ static struct  spi_driver oled_drv = {
 
 };
 
-static int __init spi_init(void)
+static int __init ssd1306_init(void)
 {
 	int ret ;
 	
-	ret = spi_register_driver(&oled_drv);
+	ret = spi_register_driver(&ssd1306_drv);
 
 	if (ret < 0) {
 		pr_info("spi_register_driver() error\n");
@@ -448,20 +448,20 @@ static int __init spi_init(void)
 
 	return 0;
 r_spi:
-	spi_unregister_driver(&oled_drv);
+	spi_unregister_driver(&ssd1306_drv);
 	return -1;
 
 } 
 
-static void __exit spi_exit(void)
+static void __exit ssd1306_exit(void)
 {
-	spi_unregister_driver(&oled_drv);
+	spi_unregister_driver(&ssd1306_drv);
 
 	return ;
 }
 
-module_init(spi_init);
-module_exit(spi_exit);
+module_init(ssd1306_init);
+module_exit(ssd1306_exit);
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("<Shi Hao>");
 MODULE_DESCRIPTION("Spi driver for 0.9inch OLED display <128*64>");
