@@ -312,7 +312,7 @@ int  display_init( struct  spi_data *sd)
 	return 0;
 } 	
 
-void oled_shutdown(struct spi_device *spi)
+void ssd1306_shutdown(struct spi_device *spi)
 {
 	struct spi_data *sd = spi_get_drvdata(spi);
 	
@@ -320,26 +320,22 @@ void oled_shutdown(struct spi_device *spi)
 	send_command(sd, 0xAE);
 
 	msleep(50);
-	dev_info(&sd->dev, "oled display powered off\n");
+	dev_info(&sd->dev, "Device powered off\n");
 
 	return;
 }
 
-void oled_remove(struct spi_device *spi)
+void ssd1306_remove(struct spi_device *spi)
 {
 	struct spi_data *sd = spi_get_drvdata(spi);
-	
-	if (!sd)
-		return;
-
 	if (!sd) 
 		return;
-	dev_info(&sd->dev, "oled driver removed \n");
+	dev_info(&sd->dev, "Device remove \n");
 
 	return ;
 }
 
-int oled_probe(struct spi_device *spi)
+int ssd1306_probe(struct spi_device *spi)
 {
 	int ret;
 	struct device *dev = &spi->dev;
@@ -401,17 +397,15 @@ int oled_probe(struct spi_device *spi)
 		 return -ENODEV;
 	}
 
-	dev_info(dev, "init complete\n");
-
-	clear_display(sd);
-	dev_info(dev, "Display is ready\n");
+	dev_info(dev, "Initialization complete\n");
 
 	init_check(sd);
-	dev_info(dev, "Init check successful\n");
+	dev_info(dev, "Initial check successful\n");
 	
 	mdelay(100);
 	clear_display(sd);
-
+	
+	dev_info(dev, "Devie is ready\n");
 	return 0;
 }
 
@@ -427,9 +421,9 @@ static struct  spi_driver ssd1306_drv = {
 		.name = "spi_oled",
 		.of_match_table = ssd1306_match_table,
 	},
-	.probe = oled_probe,
-	.remove= oled_remove,
-	.shutdown = oled_shutdown,
+	.probe = ssd1306_probe,
+	.remove= ssd1306_remove,
+	.shutdown = ssd1306_shutdown,
 	.id_table = NULL,
 
 };
@@ -444,7 +438,7 @@ static int __init ssd1306_init(void)
 		pr_info("spi_register_driver() error\n");
 		goto r_spi;
 	}
-	pr_info("oled drv loaded\n");
+	pr_info("OLED drivr registered\n");
 
 	return 0;
 r_spi:
