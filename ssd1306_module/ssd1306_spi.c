@@ -1,3 +1,4 @@
+
 #include <linux/kernel.h>
 #include <linux/fb.h>
 #include <linux/vmalloc.h>
@@ -410,11 +411,18 @@ int ssd1306_probe(struct spi_device *spi)
 }
 
 static const struct of_device_id ssd1306_match_table [] ={
-	{.compatible ="mycompany,oled-1360"},
+	{.compatible ="solomon,ssd1306-spi"},
 	{ }
 };
 
 MODULE_DEVICE_TABLE(of,ssd1306_match_table);
+
+static const struct spi_device_id ssd1306_spi_id_table[] = {
+    { "ssd1306-spi", 0 },
+    { }
+};
+
+MODULE_DEVICE_TABLE(spi, ssd1306_spi_id_table);
 
 static struct  spi_driver ssd1306_drv = { 
 	.driver = {
@@ -424,7 +432,7 @@ static struct  spi_driver ssd1306_drv = {
 	.probe = ssd1306_probe,
 	.remove= ssd1306_remove,
 	.shutdown = ssd1306_shutdown,
-	.id_table = NULL,
+	.id_table = ssd1306_spi_id_table,
 
 };
 
