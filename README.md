@@ -43,7 +43,7 @@
 ```dts
    spi@7e204000 {
     ssd1306@0 {
-        compatible = "robotronix,ssd1306";
+        compatible = "solomon,ssd1306";
         reg = <0x00>;
         spi-max-frequency = <4000000>;
         dc-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;
