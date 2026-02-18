@@ -18,11 +18,11 @@
  - Linux fbdev framework integration for userspace access
  - Suspend/Resume support for power management
 
-## Hardware Connections 
+## Hardware Connections
 
  Tested with SSD1306 SPI OLED module (3.3V logic).
 
-### Pin Connections 
+### Pin Connections
 
     | OLED |      SIGNAL     | CONNECT  |
     |------|-----------------|----------|
@@ -33,7 +33,7 @@
     | DC   |  Data/Command   | GPIO     |
     | GND  |     Ground      | GND      |
 
- 
+
  Note: This module does not expose a Chip Select pin.
 
 ## Device Tree Examples
@@ -50,4 +50,34 @@
         reset-gpios = <&gpio 24 GPIO_ACTIVE_LOW>;
     };
 };
-``` 
+```
+## Build and Install
+
+### Requirements
+
+ - Linux kernel: 6.18
+ - Architecture: ARM64
+ - Board: Raspberry Pi 4 Model B
+ - Compiler: GCC (15.2.1)
+
+
+### Build
+
+ Run this command inside driver directory
+ ```
+make
+ ```
+
+### Install
+
+ Run the following commands
+```
+ git clone git@github.com:i-shihao/ssd1306_oled_drv.git
+ cd ssd1306_oled_drv
+ sudo make
+ sudo insmod ssd1306_spi.ko
+ sudo dmesg | tail
+ sudo rmmod ssd1306_spi
+```
+
+
