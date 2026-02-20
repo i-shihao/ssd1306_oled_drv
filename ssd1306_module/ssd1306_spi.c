@@ -1,4 +1,3 @@
-
 #include <linux/kernel.h>
 #include <linux/fb.h>
 #include <linux/vmalloc.h>
@@ -14,6 +13,9 @@
 #include <linux/gpio.h>
 #include <linux/spi/spi.h>
 #include "ssd1306.h" 
+#include <linux/sysfs.h>
+#include <linux/kobject.h>
+#include <linux/err.h>
 
 #define CMD 0
 #define DATA 1
@@ -26,6 +28,7 @@ struct spi_data {
 	struct gpio_desc *cs_gpiod;
 	struct spi_controller  *ctrl;
 	uint8_t framebuffer[1024];
+	struct kobject *kobject;
 	int irq;
 };
 
@@ -33,6 +36,43 @@ struct display_offset {
 	int d_page ;
 	int d_col ;
 	int d_byte;
+};
+
+static ssize_t animation_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
+{
+	return 0;
+}
+
+static ssize_t write_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
+{
+	return count ;
+}
+
+static ssize_t clear_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
+{
+	return count ;
+}
+
+static struct kobj_attribute animation_attr = __ATTR(animation, 0220, NULL, animation_store);
+
+static struct kobj_attribute write_attr = __ATTR(write, 0220, NULL, write_store);
+
+static struct kobj_attribute clear_attr = __ATTR(clear, 0220, NULL, clear_store);
+
+static const struct of_device_id ssd1306_match_table [] ={
+	{.compatible ="solomon,ssd1306-spi"},
+	{ }
+};
+
+static struct attribute *max_attrs[] = {
+    &animation_attr.attr,
+    &write_attr.attr,
+    &clear_attr.attr,
+    NULL
+};
+
+static const struct attribute_group max_group = {
+    .attrs = max_attrs,
 };
 
 static int  colpage_to_byte(struct spi_data *sd, int col, int page)
@@ -149,6 +189,7 @@ void set_col_page(struct spi_data *sd, int start_col, int end_col, int start_pag
 
 	return;
 }
+
 
 static  void oled_flush(struct spi_data *sd, const void *string , size_t len)
 {
@@ -331,6 +372,10 @@ void ssd1306_remove(struct spi_device *spi)
 	struct spi_data *sd = spi_get_drvdata(spi);
 	if (!sd) 
 		return;
+
+	kobject_put(sd->kobject);
+	sysfs_remove_group(sd->kobject, &max_group);
+
 	dev_info(&sd->dev, "Device remove \n");
 
 	return ;
@@ -380,6 +425,23 @@ int ssd1306_probe(struct spi_device *spi)
 
 	spi_set_drvdata(spi,sd);
 
+	/* create sysfs directories and files */
+
+	sd->kobject = kobject_create_and_add("ssd1306",kernel_kobj);
+
+	if (!sd->kobject) {
+		dev_err(dev, "kobject_create_and_add() error\n");
+		return -EFAULT;
+	}
+	
+	ret = sysfs_create_group(sd->kobject, &max_group);
+
+	if (ret < 0) {
+		dev_err(dev,"sysfs_create_group() error\n");
+		return ret;
+	}
+	
+
 	/* Power on the display */
 	gpiod_set_value(sd->reset, 1);
 	
@@ -409,11 +471,6 @@ int ssd1306_probe(struct spi_device *spi)
 	dev_info(dev, "Devie is ready\n");
 	return 0;
 }
-
-static const struct of_device_id ssd1306_match_table [] ={
-	{.compatible ="solomon,ssd1306-spi"},
-	{ }
-};
 
 MODULE_DEVICE_TABLE(of,ssd1306_match_table);
 
