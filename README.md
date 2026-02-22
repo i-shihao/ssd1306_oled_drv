@@ -90,9 +90,9 @@ make
 
 ### Examples
 
-    Test the below commands in the driver directory
+ Example userspace sysfs interaction
 
- Example userspace sysfs interaction:
+ Check the sysfs entries first
  ```
  ls /sys/bus/spi/device/spi.0/
  ```
