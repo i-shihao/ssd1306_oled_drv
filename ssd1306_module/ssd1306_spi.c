@@ -169,6 +169,13 @@ static void  draw_glyph(struct spi_data *sd, char *string)
 	static int current_page = 0;
 	int end_page = 0;	
 	while(*string) {
+	
+		char c = *string;
+		if (c < 32 || c > 126) {
+			    string++;
+			    continue;
+		}
+
 
 		if (end_col  > total_col) {
 			current_col = 0;
@@ -204,6 +211,68 @@ static  void oled_flush(struct spi_data *sd, const void *string , size_t len)
 {
 	send_buff(sd, string, len);
 	return;
+}
+
+void  clear_display(struct spi_data *sd)
+{
+	uint8_t total_size[1024] = {0};
+
+	/* Set Horizontal addressing mode */
+	send_command(sd, 0x20);
+	send_command(sd, 0x00);
+
+	/* Set page and column addresses */
+	send_command(sd, 0x21);
+	send_command(sd, 0x00);
+	send_command(sd, 0x7F);
+
+	send_command(sd, 0x22);
+	send_command(sd, 0x00);
+	send_command(sd, 0x07);
+
+	send_buff(sd, total_size, 1024);
+}
+
+static ssize_t clear_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
+{
+	int val;
+	struct device *dev;
+	struct spi_data *sd;
+
+   	dev = kobj_to_dev(kobj);
+	
+	if (!dev) {
+		pr_info("kobj_to_dev() error\n");
+		return -ENODEV;
+	}
+
+    	sd  = dev_get_drvdata(dev);
+
+	if (!sd) { 
+		pr_info("dev_get_drvdata() error\n");
+		return -ENODEV;
+	}
+
+
+	if(kstrtoint(buf, 10, &val)) {
+		return -EINVAL;
+	}
+
+
+	if(val !=0 && val !=1) {
+		return -EINVAL;
+	}
+
+	if (val == 1 ) {
+		dev_info(dev, "clear display\n");
+		clear_display(sd);
+		return count;
+	}
+
+	if (val == 0) 
+		return count;
+
+	return count;
 }
 
 static ssize_t animation_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
@@ -248,30 +317,15 @@ static ssize_t write_store(struct kobject *kobj , struct kobj_attribute *attr , 
 		return -EINVAL;
 	}
 
-	memcpy(&sd->user_buf, buf, count);
+	memcpy(sd->user_buf, buf, count);
+
 	sd->user_buf[count] = '\0';
+	
 
 	/* send data to flush */
 	draw_glyph(sd,sd->user_buf);
 	return count ;
 }
-
-static ssize_t clear_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
-{
-	int val;
-
-	if(kstrtoint(buf,10,&val)) {
-	       return -EINVAL;
-	}
-
-	if( val !=0 && val != 1) {
-		return -EINVAL;
-	}
-
-	/* TODO clear display */
-	return count ;
-}
-
 static void display_framebuffer(struct spi_data *sd, int col, int page, char *string, size_t len)
 {
 	int start_byte = colpage_to_byte(sd, col, page);
@@ -333,26 +387,6 @@ void  init_check( struct  spi_data * sd)
 	send_command(sd, 0x03);
 
 	send_data(sd, 0x01);
-}
-
-void  clear_display(struct spi_data *sd)
-{
-	uint8_t total_size[1024] = {0};
-
-	/* Set Horizontal addressing mode */
-	send_command(sd, 0x20);
-	send_command(sd, 0x00);
-
-	/* Set page and column addresses */
-	send_command(sd, 0x21);
-	send_command(sd, 0x00);
-	send_command(sd, 0x7F);
-
-	send_command(sd, 0x22);
-	send_command(sd, 0x00);
-	send_command(sd, 0x07);
-
-	send_buff(sd, total_size, 1024);
 }
 
 int  display_init( struct  spi_data *sd)
@@ -423,9 +457,10 @@ void ssd1306_remove(struct spi_device *spi)
 	struct spi_data *sd = spi_get_drvdata(spi);
 	if (!sd) 
 		return;
+	struct device *dev;
+	dev = &sd->dev;
 
-	sysfs_remove_group(sd->kobject, &max_group);
-	
+	sysfs_remove_group(&dev->kobj, &max_group);
 	dev_info(&sd->dev, "Device remove \n");
 
 	return ;
@@ -479,24 +514,24 @@ int ssd1306_probe(struct spi_device *spi)
 	}
 
 	spi_set_drvdata(spi,sd);
-	
+	dev_set_drvdata(dev, sd);
+
 	/* create sysfs directories and files */
 
-	sd->kobject = kobject_create_and_add("ssd1306",kernel_kobj);
-       
-	if (!sd->kobject) {
-	       	dev_err(dev, "kobject_create_and_add() error\n");
-		return -EFAULT;
-       	}
+// 	sd->kobject = kobject_create_and_add("ssd1306",kernel_kobj);
+//        
+// 	if (!sd->kobject) {
+// 	       	dev_err(dev, "kobject_create_and_add() error\n");
+// 		return -EFAULT;
+//        	}
 
-	ret = sysfs_create_group(sd->kobject, &max_group);
+	ret = sysfs_create_group(&dev->kobj, &max_group);
 
 	if (ret < 0) {
 		dev_err(dev,"sysfs_create_group() error\n");
 		return ret;
 	}
 	
-
 	/* Power on the display */
 	gpiod_set_value(sd->reset, 1);
 	
