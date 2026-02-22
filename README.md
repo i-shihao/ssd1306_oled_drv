@@ -79,5 +79,32 @@ make
  sudo dmesg | tail
  sudo rmmod ssd1306_spi
 ```
+### Usage
 
+ After successful module insertion the driver probes the SPI device and
+ initialize the device as per the datasheet instruction.The driver exposes
+ sysfs entries under its spi device path. Userspace can interact with the
+ display by writing strings and integer to those sysfs attributes.Success-
+ full command execution and driver intialization can be verified using
+ kernel log messages.
 
+### Examples
+
+    Test the below commands in the driver directory
+
+ Example userspace sysfs interaction:
+ ```
+ ls /sys/bus/spi/device/spi.0/
+ ```
+ Navigate to sysfs  directory
+ ```
+ cd /sys/bus/spi/devices/spi.0/
+ ```
+ write string to display
+ ```
+ echo hello world > write
+  ```
+ clear after writing
+ ```
+ echo 1 > clear
+  ```
