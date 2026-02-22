@@ -92,11 +92,11 @@ make
 
  Check the sysfs entries first
  ```
- ls /sys/bus/spi/device/spi.0/
+ ls /sys/bus/spi/devices/spi0.0
  ```
  Navigate to sysfs  directory
  ```
- cd /sys/bus/spi/devices/spi.0/
+ cd /sys/bus/spi/devices/spi0.0
  ```
  write string to display
  ```
