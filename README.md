@@ -79,7 +79,7 @@ make
  sudo dmesg | tail
  sudo rmmod ssd1306_spi
 ```
-### Usage
+## Usage
 
  After successful module insertion the driver probes the SPI device and
  initialize the device as per the datasheet instruction.The driver exposes
@@ -88,7 +88,7 @@ make
  full command execution and driver intialization can be verified using
  kernel log messages.
 
-### Examples
+## Examples
 
  Check the sysfs entries first
  ```
@@ -106,3 +106,11 @@ make
  ```
  echo 1 > clear
   ```
+## Screenshots
+
+### Test output
+  ![oled test](images/oled_test.jpg)
+### Clear output
+  ![clear output](images/oled_clear.jpg)
+
+## License
