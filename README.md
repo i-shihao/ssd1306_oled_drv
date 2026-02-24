@@ -114,3 +114,6 @@ make
   ![clear output](images/oled_clear.jpg)
 
 ## License
+
+ This project is licensed under the GNU Gernal Public License version v2.0 (GPL-2.0).
+ See the LICENSE file for details.
