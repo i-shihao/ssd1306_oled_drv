@@ -1,7 +1,7 @@
 # An SSD1306 OLED kernel driver over SPI
 
 ## Table of Contents
-
+ - [Overview](#overview)
  - [Features](#features)
  - [Hardware Connections](#hardware-connections)
  - [Device Tree Examples](#device-tree-examples)
@@ -10,6 +10,13 @@
  - [Examples](#examples)
  - [Screenshots](#screenshots)
  - [License](#license)
+
+## Overview
+ 
+ An Linux based SSD1306 OLED display driver using the Linux SPI subsystem.
+ Designed for ARM-based boards and tested on Raspberry Pi 4 Model B.
+ Provides userspace interaction via Kernel sysfs interface. Created
+ as a learning project for Linux kernel driver development.
 
 ## Features
 
@@ -115,5 +122,5 @@ make
 
 ## License
 
- This project is licensed under the GNU Gernal Public License version v2.0 (GPL-2.0).
+ This project is licensed under the GNU Genral Public License version v2.0 (GPL-2.0).
  See the LICENSE file for details.
