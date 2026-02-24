@@ -22,7 +22,7 @@
 
  - Linux SPI subsystem based serial communication for OLED
  - Device Tree configured GPIOs for Data/Command and reset
- - Linux fbdev framework integration for userspace access
+ - Linux kernel sysfs framework integration for userspace access
  - Suspend/Resume support for power management
 
 ## Hardware Connections
@@ -50,7 +50,7 @@
 ```dts
    spi@7e204000 {
     ssd1306@0 {
-        compatible = "solomon,ssd1306";
+        compatible = "solomon,ssd1306-spi";
         reg = <0x00>;
         spi-max-frequency = <4000000>;
         dc-gpios = <&gpio 26 GPIO_ACTIVE_HIGH>;

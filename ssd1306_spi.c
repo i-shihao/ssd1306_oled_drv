@@ -1,3 +1,10 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+
+/*
+ * SSD1306 SPI OLED Driver
+ * Copyright (C) 2026 Shi Hao <i.shihao.999@gmail.com>
+*/
+
 #include <linux/kernel.h>
 #include <linux/fb.h>
 #include <linux/vmalloc.h>
