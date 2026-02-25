@@ -31,14 +31,14 @@
 
 ### Pin Connections
 
-    | OLED |      SIGNAL     | CONNECT  |
-    |------|-----------------|----------|
-    | VCC  |      Power      | 3.3V     |
-    | SCL  |   SPI Clock     | SPI_CLK  |
-    | SDA  |   SPI MOSI      | SPI_MOSI |
-    | RES  |     Reset       | GPIO     |
-    | DC   |  Data/Command   | GPIO     |
-    | GND  |     Ground      | GND      |
+ | OLED |      SIGNAL     | CONNECT  |
+ |------|-----------------|----------|
+ | VCC  |      Power      | 3.3V     |
+ | SCL  |   SPI Clock     | SPI_CLK  |
+ | SDA  |   SPI MOSI      | SPI_MOSI |
+ | RES  |     Reset       | GPIO     |
+ | DC   |  Data/Command   | GPIO     |
+ | GND  |     Ground      | GND      |
 
 
  Note: This module does not expose a Chip Select pin.
