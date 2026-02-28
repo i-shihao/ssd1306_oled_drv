@@ -67,25 +67,17 @@
  - Board: Raspberry Pi 4 Model B
  - Compiler: GCC (15.2.1)
 
-
+### Download
+    git clone git@github.com:i-shihao/ssd1306_oled_drv.git
 ### Build
-
- Run this command inside driver directory
- ```
-make
- ```
-
+    sudo make
 ### Install
-
- Run the following commands
-```
- git clone git@github.com:i-shihao/ssd1306_oled_drv.git
- cd ssd1306_oled_drv
- sudo make
- sudo insmod ssd1306_spi.ko
- sudo dmesg | tail
+    sudo insmod ssd1306_spi.ko
+### Verify
+    sudo dmesg | grep ssd1306
+### Remove 
  sudo rmmod ssd1306_spi
-```
+
 ## Usage
 
  After successful module insertion the driver probes the SPI device and
