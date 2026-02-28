@@ -76,7 +76,7 @@
 ### Verify
     sudo dmesg | grep ssd1306
 ### Remove 
- sudo rmmod ssd1306_spi
+    sudo rmmod ssd1306_spi
 
 ## Usage
 
