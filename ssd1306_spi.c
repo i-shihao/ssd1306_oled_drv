@@ -24,10 +24,11 @@
 #include <linux/kobject.h>
 #include <linux/err.h>
 
-#define CMD 0
-#define DATA 1
-#define DISPLAY_SIZE 	1024
-#define USER_BUFF 	256
+#define CMD		 0
+#define DATA		 1
+#define DISPLAY_SIZE	 1024
+#define USER_BUFF      	 256
+#define DRV_NAME	 "max30102-spi"
 
 struct spi_data {
         struct spi_device *spi;	
@@ -149,7 +150,8 @@ void set_address_mode(struct spi_data *sd,int mode)
 	return ;
 }
 
-void set_col_page(struct spi_data *sd, int start_col, int end_col, int start_page, int end_page)
+void set_col_page(struct spi_data *sd, int start_col, int end_col,
+		  int start_page, int end_page)
 {
 	set_address_mode(sd, DEF_ADDR_MODE);
 	send_command(sd, 0x21);
@@ -203,7 +205,8 @@ static void  draw_glyph(struct spi_data *sd, char *string)
 		end_col = current_col +len -1;
 
 		/* send font to display */	
-		set_col_page(sd, current_col, end_col, current_page, end_page);
+		set_col_page(sd, current_col, end_col,
+			     current_page, end_page);
 		send_buff(sd, SSD1306_font[index], 5);
 
 		current_col = end_col + 1;
@@ -240,7 +243,8 @@ void  clear_display(struct spi_data *sd)
 	send_buff(sd, total_size, 1024);
 }
 
-static ssize_t clear_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
+static ssize_t clear_store(struct kobject *kobj , struct kobj_attribute *attr
+			  , const  char *buf, size_t count)
 {
 	int val;
 	struct device *dev;
@@ -282,7 +286,8 @@ static ssize_t clear_store(struct kobject *kobj , struct kobj_attribute *attr , 
 	return count;
 }
 
-static ssize_t animation_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
+static ssize_t animation_store(struct kobject *kobj , struct kobj_attribute *attr,
+	       			const  char *buf, size_t count)
 {
 	int val;
 
@@ -299,7 +304,8 @@ static ssize_t animation_store(struct kobject *kobj , struct kobj_attribute *att
 	return count;
 }
 
-static ssize_t write_store(struct kobject *kobj , struct kobj_attribute *attr , const  char *buf, size_t count)
+static ssize_t write_store(struct kobject *kobj , struct kobj_attribute *attr ,
+			   const  char *buf, size_t count)
 {
 
 	struct device *dev;
@@ -333,7 +339,8 @@ static ssize_t write_store(struct kobject *kobj , struct kobj_attribute *attr , 
 	draw_glyph(sd,sd->user_buf);
 	return count ;
 }
-static void display_framebuffer(struct spi_data *sd, int col, int page, char *string, size_t len)
+static void display_framebuffer(struct spi_data *sd, int col, int page,
+				char *string, size_t len)
 {
 	int start_byte = colpage_to_byte(sd, col, page);
 
@@ -523,15 +530,6 @@ int ssd1306_probe(struct spi_device *spi)
 	spi_set_drvdata(spi,sd);
 	dev_set_drvdata(dev, sd);
 
-	/* create sysfs directories and files */
-
-// 	sd->kobject = kobject_create_and_add("ssd1306",kernel_kobj);
-//        
-// 	if (!sd->kobject) {
-// 	       	dev_err(dev, "kobject_create_and_add() error\n");
-// 		return -EFAULT;
-//        	}
-
 	ret = sysfs_create_group(&dev->kobj, &max_group);
 
 	if (ret < 0) {
@@ -585,7 +583,7 @@ MODULE_DEVICE_TABLE(spi, ssd1306_spi_id_table);
 
 static struct  spi_driver ssd1306_drv = { 
 	.driver = {
-		.name = "spi_oled",
+		.name = DRV_NAME,
 		.of_match_table = ssd1306_match_table,
 	},
 	.probe = ssd1306_probe,
